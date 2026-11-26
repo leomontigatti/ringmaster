@@ -1,5 +1,5 @@
 import type { LinkProps } from "@tanstack/react-router";
-import { HouseIcon, UserCogIcon } from "lucide-react";
+import { HouseIcon, PackageIcon, UserCogIcon, UsersIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import type { Role } from "#/lib/access.ts";
@@ -31,7 +31,11 @@ interface NavFolder {
 const groups: { label: string; items: (NavLink | NavFolder)[] }[] = [
   {
     label: "General",
-    items: [{ label: "Inicio", to: "/", icon: HouseIcon }],
+    items: [
+      { label: "Inicio", to: "/", icon: HouseIcon },
+      { label: "Clientes", to: "/clientes", icon: UsersIcon },
+      { label: "Productos", to: "/productos", icon: PackageIcon },
+    ],
   },
   {
     label: "Administración",

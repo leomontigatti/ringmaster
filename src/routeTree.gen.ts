@@ -14,10 +14,18 @@ import { Route as IngresarRouteImport } from './routes/ingresar'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppCambiarContrasenaRouteImport } from './routes/_app/cambiar-contrasena'
 import { Route as ApiSetupRouteImport } from './routes/api/setup'
+import { Route as AppClientesIndexRouteImport } from './routes/_app/clientes/index'
+import { Route as AppClientesNuevoRouteImport } from './routes/_app/clientes/nuevo'
 import { Route as AppDevPatronesRouteImport } from './routes/_app/dev/patrones'
 import { Route as AppPersonalIndexRouteImport } from './routes/_app/personal/index'
 import { Route as AppPersonalMemberIdRouteImport } from './routes/_app/personal/$memberId'
 import { Route as AppPersonalNuevaRouteImport } from './routes/_app/personal/nueva'
+import { Route as AppProductosIndexRouteImport } from './routes/_app/productos/index'
+import { Route as AppProductosNuevoRouteImport } from './routes/_app/productos/nuevo'
+import { Route as AppClientesClientIdIndexRouteImport } from './routes/_app/clientes/$clientId/index'
+import { Route as AppClientesClientIdEditarRouteImport } from './routes/_app/clientes/$clientId/editar'
+import { Route as AppProductosProductIdIndexRouteImport } from './routes/_app/productos/$productId/index'
+import { Route as AppProductosProductIdEditarRouteImport } from './routes/_app/productos/$productId/editar'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -43,6 +51,16 @@ const ApiSetupRoute = ApiSetupRouteImport.update({
   path: '/api/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppClientesIndexRoute = AppClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientesNuevoRoute = AppClientesNuevoRouteImport.update({
+  id: '/clientes/nuevo',
+  path: '/clientes/nuevo',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDevPatronesRoute = AppDevPatronesRouteImport.update({
   id: '/dev/patrones',
   path: '/dev/patrones',
@@ -63,26 +81,76 @@ const AppPersonalNuevaRoute = AppPersonalNuevaRouteImport.update({
   path: '/personal/nueva',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProductosIndexRoute = AppProductosIndexRouteImport.update({
+  id: '/productos/',
+  path: '/productos/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductosNuevoRoute = AppProductosNuevoRouteImport.update({
+  id: '/productos/nuevo',
+  path: '/productos/nuevo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientesClientIdIndexRoute =
+  AppClientesClientIdIndexRouteImport.update({
+    id: '/clientes/$clientId/',
+    path: '/clientes/$clientId/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppClientesClientIdEditarRoute =
+  AppClientesClientIdEditarRouteImport.update({
+    id: '/clientes/$clientId/editar',
+    path: '/clientes/$clientId/editar',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppProductosProductIdIndexRoute =
+  AppProductosProductIdIndexRouteImport.update({
+    id: '/productos/$productId/',
+    path: '/productos/$productId/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppProductosProductIdEditarRoute =
+  AppProductosProductIdEditarRouteImport.update({
+    id: '/productos/$productId/editar',
+    path: '/productos/$productId/editar',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/ingresar': typeof IngresarRoute
   '/cambiar-contrasena': typeof AppCambiarContrasenaRoute
   '/api/setup': typeof ApiSetupRoute
+  '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/dev/patrones': typeof AppDevPatronesRoute
   '/personal/$memberId': typeof AppPersonalMemberIdRoute
   '/personal/nueva': typeof AppPersonalNuevaRoute
+  '/productos/nuevo': typeof AppProductosNuevoRoute
+  '/clientes/': typeof AppClientesIndexRoute
   '/personal/': typeof AppPersonalIndexRoute
+  '/productos/': typeof AppProductosIndexRoute
+  '/clientes/$clientId/editar': typeof AppClientesClientIdEditarRoute
+  '/productos/$productId/editar': typeof AppProductosProductIdEditarRoute
+  '/clientes/$clientId/': typeof AppClientesClientIdIndexRoute
+  '/productos/$productId/': typeof AppProductosProductIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/ingresar': typeof IngresarRoute
   '/cambiar-contrasena': typeof AppCambiarContrasenaRoute
   '/api/setup': typeof ApiSetupRoute
   '/': typeof AppIndexRoute
+  '/clientes/nuevo': typeof AppClientesNuevoRoute
   '/dev/patrones': typeof AppDevPatronesRoute
   '/personal/$memberId': typeof AppPersonalMemberIdRoute
   '/personal/nueva': typeof AppPersonalNuevaRoute
+  '/productos/nuevo': typeof AppProductosNuevoRoute
+  '/clientes': typeof AppClientesIndexRoute
   '/personal': typeof AppPersonalIndexRoute
+  '/productos': typeof AppProductosIndexRoute
+  '/clientes/$clientId/editar': typeof AppClientesClientIdEditarRoute
+  '/productos/$productId/editar': typeof AppProductosProductIdEditarRoute
+  '/clientes/$clientId': typeof AppClientesClientIdIndexRoute
+  '/productos/$productId': typeof AppProductosProductIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -91,10 +159,18 @@ export interface FileRoutesById {
   '/_app/cambiar-contrasena': typeof AppCambiarContrasenaRoute
   '/api/setup': typeof ApiSetupRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/clientes/nuevo': typeof AppClientesNuevoRoute
   '/_app/dev/patrones': typeof AppDevPatronesRoute
   '/_app/personal/$memberId': typeof AppPersonalMemberIdRoute
   '/_app/personal/nueva': typeof AppPersonalNuevaRoute
+  '/_app/productos/nuevo': typeof AppProductosNuevoRoute
+  '/_app/clientes/': typeof AppClientesIndexRoute
   '/_app/personal/': typeof AppPersonalIndexRoute
+  '/_app/productos/': typeof AppProductosIndexRoute
+  '/_app/clientes/$clientId/editar': typeof AppClientesClientIdEditarRoute
+  '/_app/productos/$productId/editar': typeof AppProductosProductIdEditarRoute
+  '/_app/clientes/$clientId/': typeof AppClientesClientIdIndexRoute
+  '/_app/productos/$productId/': typeof AppProductosProductIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -103,20 +179,36 @@ export interface FileRouteTypes {
     | '/ingresar'
     | '/cambiar-contrasena'
     | '/api/setup'
+    | '/clientes/nuevo'
     | '/dev/patrones'
     | '/personal/$memberId'
     | '/personal/nueva'
+    | '/productos/nuevo'
+    | '/clientes/'
     | '/personal/'
+    | '/productos/'
+    | '/clientes/$clientId/editar'
+    | '/productos/$productId/editar'
+    | '/clientes/$clientId/'
+    | '/productos/$productId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/ingresar'
     | '/cambiar-contrasena'
     | '/api/setup'
     | '/'
+    | '/clientes/nuevo'
     | '/dev/patrones'
     | '/personal/$memberId'
     | '/personal/nueva'
+    | '/productos/nuevo'
+    | '/clientes'
     | '/personal'
+    | '/productos'
+    | '/clientes/$clientId/editar'
+    | '/productos/$productId/editar'
+    | '/clientes/$clientId'
+    | '/productos/$productId'
   id:
     | '__root__'
     | '/_app'
@@ -124,10 +216,18 @@ export interface FileRouteTypes {
     | '/_app/cambiar-contrasena'
     | '/api/setup'
     | '/_app/'
+    | '/_app/clientes/nuevo'
     | '/_app/dev/patrones'
     | '/_app/personal/$memberId'
     | '/_app/personal/nueva'
+    | '/_app/productos/nuevo'
+    | '/_app/clientes/'
     | '/_app/personal/'
+    | '/_app/productos/'
+    | '/_app/clientes/$clientId/editar'
+    | '/_app/productos/$productId/editar'
+    | '/_app/clientes/$clientId/'
+    | '/_app/productos/$productId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -173,6 +273,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/clientes/': {
+      id: '/_app/clientes/'
+      path: '/clientes'
+      fullPath: '/clientes/'
+      preLoaderRoute: typeof AppClientesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/clientes/nuevo': {
+      id: '/_app/clientes/nuevo'
+      path: '/clientes/nuevo'
+      fullPath: '/clientes/nuevo'
+      preLoaderRoute: typeof AppClientesNuevoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dev/patrones': {
       id: '/_app/dev/patrones'
       path: '/dev/patrones'
@@ -201,25 +315,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPersonalNuevaRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/productos/': {
+      id: '/_app/productos/'
+      path: '/productos'
+      fullPath: '/productos/'
+      preLoaderRoute: typeof AppProductosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/productos/nuevo': {
+      id: '/_app/productos/nuevo'
+      path: '/productos/nuevo'
+      fullPath: '/productos/nuevo'
+      preLoaderRoute: typeof AppProductosNuevoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/clientes/$clientId/': {
+      id: '/_app/clientes/$clientId/'
+      path: '/clientes/$clientId'
+      fullPath: '/clientes/$clientId/'
+      preLoaderRoute: typeof AppClientesClientIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/clientes/$clientId/editar': {
+      id: '/_app/clientes/$clientId/editar'
+      path: '/clientes/$clientId/editar'
+      fullPath: '/clientes/$clientId/editar'
+      preLoaderRoute: typeof AppClientesClientIdEditarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/productos/$productId/': {
+      id: '/_app/productos/$productId/'
+      path: '/productos/$productId'
+      fullPath: '/productos/$productId/'
+      preLoaderRoute: typeof AppProductosProductIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/productos/$productId/editar': {
+      id: '/_app/productos/$productId/editar'
+      path: '/productos/$productId/editar'
+      fullPath: '/productos/$productId/editar'
+      preLoaderRoute: typeof AppProductosProductIdEditarRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppCambiarContrasenaRoute: typeof AppCambiarContrasenaRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppClientesNuevoRoute: typeof AppClientesNuevoRoute
   AppDevPatronesRoute: typeof AppDevPatronesRoute
   AppPersonalMemberIdRoute: typeof AppPersonalMemberIdRoute
   AppPersonalNuevaRoute: typeof AppPersonalNuevaRoute
+  AppProductosNuevoRoute: typeof AppProductosNuevoRoute
+  AppClientesIndexRoute: typeof AppClientesIndexRoute
   AppPersonalIndexRoute: typeof AppPersonalIndexRoute
+  AppProductosIndexRoute: typeof AppProductosIndexRoute
+  AppClientesClientIdEditarRoute: typeof AppClientesClientIdEditarRoute
+  AppProductosProductIdEditarRoute: typeof AppProductosProductIdEditarRoute
+  AppClientesClientIdIndexRoute: typeof AppClientesClientIdIndexRoute
+  AppProductosProductIdIndexRoute: typeof AppProductosProductIdIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppCambiarContrasenaRoute: AppCambiarContrasenaRoute,
   AppIndexRoute: AppIndexRoute,
+  AppClientesNuevoRoute: AppClientesNuevoRoute,
   AppDevPatronesRoute: AppDevPatronesRoute,
   AppPersonalMemberIdRoute: AppPersonalMemberIdRoute,
   AppPersonalNuevaRoute: AppPersonalNuevaRoute,
+  AppProductosNuevoRoute: AppProductosNuevoRoute,
+  AppClientesIndexRoute: AppClientesIndexRoute,
   AppPersonalIndexRoute: AppPersonalIndexRoute,
+  AppProductosIndexRoute: AppProductosIndexRoute,
+  AppClientesClientIdEditarRoute: AppClientesClientIdEditarRoute,
+  AppProductosProductIdEditarRoute: AppProductosProductIdEditarRoute,
+  AppClientesClientIdIndexRoute: AppClientesClientIdIndexRoute,
+  AppProductosProductIdIndexRoute: AppProductosProductIdIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

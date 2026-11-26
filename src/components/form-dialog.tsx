@@ -95,6 +95,8 @@ export function FormDialog(props: {
    * (or Escape) goes back to the form as it was left.
    */
   question?: DialogQuestion | null;
+  /** PROTOTYPE (prototype/catalog): a wider, scrolling dialog for a longer form. */
+  className?: string;
   children: ReactNode;
 }) {
   const { dialog, form, action, question } = props;
@@ -129,7 +131,7 @@ export function FormDialog(props: {
 
   return (
     <Dialog open={dialog.open} onOpenChange={change} disablePointerDismissal>
-      <DialogContent>
+      <DialogContent className={props.className}>
         {question && <QuestionContent question={question} pending={action.pending} />}
         {/* Hidden, not unmounted, while a question is asked: what was typed stays. */}
         <form
