@@ -1,0 +1,33 @@
+import { QueryClient } from "@tanstack/react-query";
+import { createRouter } from "@tanstack/react-router";
+import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+
+import { routeTree } from "./routeTree.gen.ts";
+
+export function getRouter() {
+  const queryClient = new QueryClient();
+
+  const router = createRouter({
+    routeTree,
+    context: { queryClient },
+    scrollRestoration: true,
+    defaultPreload: "intent",
+    defaultPreloadStaleTime: 0,
+    // Back from a save waits for the fresh data: a saved form never shows the old row.
+    defaultStaleReloadMode: "blocking",
+    // Every navigation, back and forward too, carries a record's name between
+    // its list row and its page's title (`RecordName`); the page itself swaps
+    // with no crossfade (`styles.css`).
+    defaultViewTransition: true,
+  });
+
+  setupRouterSsrQueryIntegration({ router, queryClient });
+
+  return router;
+}
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: ReturnType<typeof getRouter>;
+  }
+}

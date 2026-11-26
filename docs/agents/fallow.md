@@ -1,0 +1,69 @@
+# Fallow
+
+[Fallow](https://fallow.tools) finds dead code (unreachable files, unused exports
+and types), unused dependencies and duplication. It is a gate and an investigation
+tool. Config: `.fallowrc.json`.
+
+## The gate
+
+`pnpm check:fallow` (`fallow audit --quiet --gate-marker agent --base origin/main`)
+runs in the agent `Stop` hook ([validation.md](./validation.md#hooks-inside-the-session)),
+in `.vite-hooks/pre-commit` and in CI's `checks` job; both hooks skip it, and
+`pnpm check:dupes`, on a `prototype/*` branch ([verification.md](./verification.md#prototype)).
+Locally it reads the
+working tree, not only what is staged, the same as `pnpm typecheck`; CI judges the
+pushed branch. It fails only on what
+this branch **adds** on top of `origin/main`. Findings already on `main` are
+reported as inherited and don't fail it, so a red gate always names something the
+branch did.
+
+`--base origin/main` is deliberate. Without it the audit bases on the branch's own
+last push, and the first merge of `main` into an open branch would attribute
+everything `main` brought in to that branch.
+
+Read it by **exit code**, unpiped: `pnpm check:fallow; echo $?`. A pipe into
+`tail` or `grep` reports that command's status instead.
+
+- **0**: pass. Anything printed is information, such as inherited findings,
+  duplication or the `unused-dependencies` warnings.
+- **1**: the findings listed are this branch's. Fix them.
+- **2**: fallow could not run (a bad config, or `origin/main` missing or shallow).
+  The branch was never checked, so never treat it as a pass. Run `git fetch origin`
+  and retry.
+
+Severity choices, each explained in `.fallowrc.json`:
+
+- **Unused dependencies only warn.** ADR-0001's libraries arrive before the
+  features that import them. A dependency still unused once its feature exists is a
+  candidate for removal.
+- **A clone group warns; the codebase total fails above 3%.** `fallow audit`
+  reports clone groups from three copies up and never fails on them. It ignores
+  `duplicates.threshold`, so `pnpm check:dupes` (`fallow dupes --quiet`) runs beside
+  it, in the agent `Stop` hook, the pre-commit hook and CI, and fails once duplicated
+  lines pass 3% of the codebase (1.2% on 2026-11-09). Its exit codes read the same:
+  1 is over the threshold, 2 is a config or argument error, and it needs no
+  `origin/main`. When either fires, find every copy with
+  `pnpm exec fallow dupes --trace <file>:<line>` and extract the shared idiom;
+  don't raise the threshold or suppress the group.
+
+## Investigating
+
+| Before you...                        | Run                                                    |
+| ------------------------------------ | ------------------------------------------------------ |
+| delete an "unused" export or file    | `pnpm exec fallow dead-code --trace <file>:<export>`   |
+| delete an "unused" dependency        | `pnpm exec fallow dead-code --trace-dependency <name>` |
+| hand off a changeset                 | `pnpm exec fallow audit --base origin/main`            |
+| pick what to refactor                | `pnpm exec fallow health --hotspots --targets`         |
+| look for reachable code with no test | `pnpm exec fallow health --coverage-gaps`              |
+
+`pnpm exec fallow dead-code` with no flags lists everything, inherited findings
+included. Expect scaffolding that has no user yet, such as shadcn components and the
+auth client; it stays until a feature uses it or it is deleted.
+
+## Fallow Cloud
+
+Not used. It collects which functions run in production and serves that to agents (the vendored
+`fallow` skill's cloud reads and hosted MCP server). ringmaster has no production traffic to
+collect yet, and sending production data to a third party is the user's decision. Don't run a
+`--cloud` command or connect to `api.fallow.cloud`; a cloud-backed call without a key returns
+`no_key` or is refused, which is expected here.

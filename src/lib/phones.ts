@@ -1,0 +1,90 @@
+import {
+  getCountryCallingCode,
+  isSupportedCountry,
+  parsePhoneNumberFromString,
+} from "libphonenumber-js";
+
+// Phones are typed in the phone field, a country and its national number, and
+// stored in E.164, the one spelling every service reads.
+
+const defaultRegion = "AR";
+
+export type PhoneEntryRefusal =
+  | "missingPhone"
+  | "notDigits"
+  | "wrongArgentineNumber"
+  | "invalidPhone";
+
+export type PhoneResult = { ok: true; phone: string } | { ok: false; reason: PhoneEntryRefusal };
+
+/**
+ * The E.164 phone a search text spells, typed any local way (`0351 15 555-1234`,
+ * `3515551234`) or with its `+`; a number with no `+` is read as Argentine.
+ * Null when the text is no valid phone.
+ */
+export function parsePhone(input: string): string | null {
+  const parsed = parsePhoneNumberFromString(input, defaultRegion);
+  return parsed?.isValid() ? parsed.number : null;
+}
+
+export interface PhoneEntry {
+  country: string;
+  number: string;
+}
+
+export function parsePhoneEntry(entry: PhoneEntry): PhoneResult {
+  const { number } = entry;
+  if (number.trim() === "") {
+    return { ok: false, reason: "missingPhone" };
+  }
+  if (!/^\d+$/.test(number)) {
+    return { ok: false, reason: "notDigits" };
+  }
+  if (entry.country === defaultRegion) {
+    return argentineNumber.test(number)
+      ? { ok: true, phone: `+549${number}` }
+      : { ok: false, reason: "wrongArgentineNumber" };
+  }
+  const { country } = entry;
+  if (!isSupportedCountry(country)) {
+    return { ok: false, reason: "invalidPhone" };
+  }
+  const parsed = parsePhoneNumberFromString(number, country);
+  return parsed?.isValid() && parsed.countryCallingCode === getCountryCallingCode(country)
+    ? { ok: true, phone: parsed.number }
+    : { ok: false, reason: "invalidPhone" };
+}
+
+export const emptyPhoneEntry: PhoneEntry = { country: defaultRegion, number: "" };
+
+/**
+ * A stored E.164 phone as its phone field shows it again: its country, and
+ * the national number, an Argentine one without the `9` of a mobile.
+ */
+export function splitPhone(phone: string): PhoneEntry {
+  const parsed = parsePhoneNumberFromString(phone);
+  if (!parsed?.country) {
+    return { country: defaultRegion, number: phone.replace(/\D/g, "") };
+  }
+  const national = parsed.nationalNumber;
+  const number =
+    parsed.country === defaultRegion ? national.replace(/^9(?=\d{10}$)/, "") : national;
+  return { country: parsed.country, number };
+}
+
+const argentineNumber = /^(?:11\d{8}|[23]\d{9})$/;
+
+/**
+ * An E.164 phone as people read it: an Argentine number as the 10 digits its
+ * phone field takes, spaced the local way with no `0` and no `15`; any other
+ * with its country prefix.
+ */
+export function formatPhone(phone: string): string {
+  const parsed = parsePhoneNumberFromString(phone);
+  if (parsed?.country !== defaultRegion) {
+    return parsed ? parsed.formatInternational() : phone;
+  }
+  const digits = splitPhone(phone).number;
+  const landline = parsePhoneNumberFromString(`+54${digits}`);
+  return landline ? landline.formatNational().replace(/^0/, "") : digits;
+}

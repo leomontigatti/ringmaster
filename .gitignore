@@ -1,0 +1,29 @@
+node_modules
+.pnpm-store/
+.DS_Store
+.env
+.env.local
+*.local
+dist
+.wrangler
+.dev.vars*
+.tanstack
+.vite-hooks/_
+coverage
+tmp/
+
+# subagent and implement-spec worktrees
+.claude/worktrees/
+
+# playwright-cli scratch: snapshots, console logs, saved login state
+.playwright-cli/
+
+# lint probes tests/lint/*.test.ts write and remove; a killed run can
+# leave them behind, and they break the rules on purpose
+tests/lint/.probes-*/
+
+# the browser suite's saved sign-ins, traces and report (tests/e2e/README.md)
+tests/e2e/.auth/
+test-results/
+playwright-report/
+tests/evals/assistant/results/

@@ -1,0 +1,31 @@
+# TDD for code that reaches the organization's data
+
+ringmaster's facts for the shared `tdd` skill, when a change touches code that reads or writes an
+organization's data: the organization object's methods and the area modules in
+`src/organization/`. The loop, and what not to test, are the skill's.
+
+- **The seam is the object's method**, called through its stub the way a server function calls
+  it: `organization.<method>(caller, input)`. Assert on what it returns (the result or the
+  refusal) and on what a later method call reads back; reach into storage with `inStorage()` only
+  for what no method shows (an audit entry, a row a method never returns). Never assert on the
+  SQL an area function builds.
+- **The storage is real**: a `*.workers.test.ts` file beside the code, run in the Workers runtime
+  with `pnpm test:workers <path>`. Each object gets SQLite storage of its own, with every
+  migration applied when it starts, so a test that calls `setUpTestOrganization()` or
+  `freshOrganization()` shares no data with any other.
+- **Authorization is part of the behaviour.** The object checks the caller against its own member
+  table on every call, so a method's tests cover the roles it refuses (`forbidden`), an unknown
+  or deactivated caller (`unauthenticated`), and a member who must still change their password,
+  through members added with `addMember()`.
+- **Races inside the object are not tested with concurrency**: an object runs one event at a
+  time and an area function writes in one synchronous transaction, so a check and its write
+  cannot interleave. A browser-only race (a save and a navigation) belongs to the browser suite
+  ([tests/e2e/README.md](../../tests/e2e/README.md)).
+- **Clerk is faked**: `fakeAccounts` (with `vi.mock` of `#/organization/accounts.ts`) stands in
+  for Clerk's Backend API; a test asserts on the users and metadata it holds.
+- **Fixtures**: `src/organization/organization.test-support.ts` (`setUpTestOrganization`,
+  `freshOrganization`, `adminCaller`, `addMember`, `inObject`, `inStorage`, `auditEntriesFor`, `fakeAccounts`).
+  Extend it before adding another support file
+  ([coding-standards.md](./coding-standards.md#test-support-files)).
+- **A schema change** is `src/organization/schema.ts` plus `pnpm organization:generate`, and the
+  generated SQL is read before it is committed. A migration on `main` is never edited.

@@ -1,0 +1,65 @@
+// A sign-in or a sign-out loads the app afresh in every open tab. Whatever a
+// tab holds in memory (the router's loader cache, the query cache, the screen
+// itself) belongs to whoever was signed in before, so a full page load drops
+// it all instead of each cache being cleared by hand.
+//
+// The change is written to local storage, and other tabs hear it through the
+// `storage` event, which never fires in the tab that wrote it. A tab that was
+// still loading misses the event; the signed-in layout catches it by asking the
+// server who is signed in once it mounts (`useSessionGuard` in `src/hooks/use-session-guard.ts`).
+
+import { errorClass, log } from "#/lib/log.ts";
+
+const storageKey = "ringmaster-session-changed";
+
+let changing = false;
+
+/** Whether this tab is leaving for a new session: nothing may hold it back. */
+export function isSessionChanging(): boolean {
+  return changing;
+}
+
+export function isSignedInAs(
+  result: { ok: true; viewer: { userId: string } } | { ok: false },
+  userId: string,
+): boolean {
+  return result.ok && result.viewer.userId === userId;
+}
+
+export function reloadForNewSession(): void {
+  changing = true;
+  window.location.reload();
+}
+
+export function startNewSession(path: string): void {
+  try {
+    localStorage.setItem(storageKey, crypto.randomUUID());
+  } catch (error) {
+    log.warn("session-change", "could not tell other tabs", { error: errorClass(error) });
+  }
+  changing = true;
+  window.location.assign(path);
+}
+
+/**
+ * Reloads this tab when another tab signs in or out, and when the browser
+ * restores it from its back-forward cache. Returns the unsubscribe.
+ */
+export function reloadOnSessionChange(): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === storageKey) {
+      reloadForNewSession();
+    }
+  };
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (event.persisted) {
+      reloadForNewSession();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener("pageshow", onPageShow);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener("pageshow", onPageShow);
+  };
+}

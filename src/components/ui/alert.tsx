@@ -1,0 +1,106 @@
+import * as React from "react";
+import { cva } from "class-variance-authority";
+import { cn } from "cn";
+import { CircleAlertIcon, CircleCheckIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
+
+// Local divergence from shadcn: every alert says what kind of message it is, so
+// `variant` is required and has no `default`, and `Alert` draws that variant's
+// one icon itself, so a message reads the same everywhere (style guide, Alerts).
+// Toasts take the same colors and icons from `alertTones` and `alertIcons`.
+// `AlertAction` sits centred on the alert's right edge, not in its top corner,
+// so a one-line action lines up with a two-line message, and the text keeps
+// clear of it (`pr-28`, room for a `sm` button such as `Restaurar`). Its button
+// takes the alert's colour, so a `link` action reads as part of the message.
+
+/** Each kind of message's colors, shared by alerts and toasts. */
+const alertTones = {
+  destructive: "border-destructive-tint-border bg-destructive-tint text-destructive",
+  info: "border-info-tint-border bg-info-tint text-info",
+  success: "border-success-tint-border bg-success-tint text-success",
+  warning: "border-warning-tint-border bg-warning-tint text-warning",
+};
+
+const alertVariants = cva(
+  "group/alert relative grid w-full gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-28 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
+  {
+    variants: {
+      variant: {
+        destructive: `${alertTones.destructive} *:data-[slot=alert-description]:text-current`,
+        info: `${alertTones.info} *:data-[slot=alert-description]:text-current`,
+        success: `${alertTones.success} *:data-[slot=alert-description]:text-current`,
+        warning: `${alertTones.warning} *:data-[slot=alert-description]:text-current`,
+      },
+    },
+  },
+);
+
+const alertIcons = {
+  destructive: CircleAlertIcon,
+  info: InfoIcon,
+  success: CircleCheckIcon,
+  warning: TriangleAlertIcon,
+};
+
+type AlertVariant = keyof typeof alertIcons;
+
+function Alert({
+  className,
+  variant,
+  children,
+  ...props
+}: React.ComponentProps<"div"> & { variant: AlertVariant }) {
+  const Icon = alertIcons[variant];
+  return (
+    <div
+      data-slot="alert"
+      role="alert"
+      className={cn(alertVariants({ variant }), className)}
+      {...props}
+    >
+      <Icon aria-hidden="true" />
+      {children}
+    </div>
+  );
+}
+
+function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-title"
+      className={cn(
+        "font-semibold group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function AlertDescription({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-description"
+      className={cn(
+        "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-action"
+      className={cn(
+        "absolute top-1/2 right-3 -translate-y-1/2 *:data-[slot=button]:text-current",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Alert, AlertTitle, AlertDescription, AlertAction, alertIcons, alertTones };
+export type { AlertVariant };

@@ -1,0 +1,45 @@
+#!/bin/sh
+# Any failing command stops the commit. Without this, a finding from gitleaks would
+# not block: the hook's exit status is the last command's.
+set -e
+
+# Secrets first: nothing else matters if the commit carries a credential. Config in
+# `.gitleaks.toml`. gitleaks is optional on purpose: it is not a pnpm dependency, so
+# a missing binary warns and lets the commit through. CI's `checks` job runs the
+# same scan blocking.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --no-banner --redact --verbose
+else
+  echo "gitleaks not installed, secret scan skipped; CI still runs it"
+fi
+
+# Staged files only: formatting and lint fixes, from the `staged` block in vite.config.ts.
+vp staged
+# Types over the whole project: a staged-only check cannot see a broken import elsewhere.
+pnpm typecheck
+# Dead code and unused dependencies this branch adds, against origin/main
+# (docs/agents/fallow.md). About a second. It reads the working tree, like
+# typecheck, not only what is staged. A `prototype/*` branch skips both fallow
+# gates: its variants trip them by design and it never merges
+# (docs/agents/verification.md § Prototype).
+case "$(git branch --show-current)" in
+  prototype/*) ;;
+  *)
+    if ! git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null; then
+      echo "pre-commit: origin/main is missing, so fallow cannot judge this branch." >&2
+      echo "Run 'git fetch origin main' and commit again (docs/agents/fallow.md)." >&2
+      exit 1
+    fi
+    pnpm check:fallow
+    # Duplication over the whole codebase, failing above `duplicates.threshold` in
+    # .fallowrc.json, which `fallow audit` does not read.
+    pnpm check:dupes
+    ;;
+esac
+# Whole-tree checks CI's `checks` job runs, each a few seconds at most, so a commit
+# catches what would otherwise fail only after a push. CI still runs them all. The
+# type-assertion ratchet reads origin/main's allowlist and fails closed without it.
+pnpm check:comment-language
+pnpm check:labels
+pnpm check:file-tokens
+pnpm check:type-assertions

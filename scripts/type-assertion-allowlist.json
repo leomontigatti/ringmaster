@@ -1,0 +1,18 @@
+{
+  "sharedUtilities": {
+    "src/dev/accepted.ts": 1
+  },
+  "files": {
+    "scripts/dev-stop.ts": 2,
+    "scripts/labels.ts": 5,
+    "scripts/sync-labels.ts": 1,
+    "src/components/date-time-text.ts": 2,
+    "src/components/form-problems.test.ts": 2,
+    "src/components/ui/input-group.tsx": 1,
+    "src/components/ui/toast.tsx": 1,
+    "src/routes/_app/dev/patrones.tsx": 1,
+    "src/routes/_app/personal/nueva.tsx": 1,
+    "src/server/with-organization.ts": 1,
+    "tests/lint/lint.test-support.ts": 1
+  }
+}

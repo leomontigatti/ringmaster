@@ -1,0 +1,251 @@
+# CI pipeline for ringmaster. PR-only: every change reaches `main` through a pull
+# request, and nothing pushes to `main` directly. Two gates, both meant to be
+# required on `main` (branch protection is a repo setting, not a file here, so
+# renaming a job does not update it):
+#   - checks      : secrets scan, format/lint/typecheck, label, comment-language and
+#                   file-size checks, dependency audit, fallow, unit tests, the
+#                   Workers tests, and the production build. On a diff of only
+#                   Markdown and docs/, the steps from the dependency audit on skip,
+#                   except test:unit. No database service: the Workers tests run
+#                   the organization object in Miniflare.
+#   - actions-gate: zizmor + actionlint over every workflow in this directory, and
+#                   zizmor over .github/dependabot.yml.
+# One job that is not required yet:
+#   - e2e         : the Playwright suite (`pnpm test:e2e`) against the production
+#                   Worker, served locally; required after about two weeks
+#                   without a flaky run (docs/operations/ci.md).
+# `pr-title`, from `pr-title.yml`, is the third required context. The full list and
+# how to change it: docs/operations/ci.md.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Every job here only reads the repository: no job comments, labels or pushes.
+# Declared at the top level so each job inherits it and none silently gets the
+# default write-all token (zizmor `excessive-permissions`).
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Full history: the gitleaks range is `origin/main..HEAD`, and fallow
+          # and the dependency audit compare against `origin/main`.
+          fetch-depth: 0
+          persist-credentials: false
+      # `origin/main` with its full history, once, for every step that compares this
+      # branch against main: gitleaks, the dependency audit and fallow, which needs
+      # the merge base. Not `--depth=1`: a shallow main can cut the merge base off,
+      # and fallow then exits 2 instead of judging the branch.
+      - name: fetch origin/main
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      # A diff made only of Markdown and `docs/` cannot change what the audits, the
+      # Workers tests or the build see, so those steps skip on it (`docs_only`). The job still runs, so the required context reports; a
+      # `paths:` filter on the workflow would leave it pending and block the merge.
+      # The secrets scan, the checks that read prose and `test:unit` still run: the
+      # comment-language tests read `GLOSSARY.md` and every tracked `*.md`. An empty
+      # diff (a manual run on main) counts as code, so every step runs.
+      # `--no-renames`: a rename lists only its new path, so a file moved into
+      # `docs/` would hide the path it left. A here-string, not a pipe: under
+      # `pipefail`, `grep -q` exiting early can SIGPIPE the writer, and the `!`
+      # would read that failure as docs-only.
+      - name: classify the diff
+        id: diff
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only --no-renames origin/main...HEAD)"
+          if [ -n "$changed" ] && ! grep -qvE '(\.md$|^docs/)' <<<"$changed"; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "Docs-only diff: the audit, Workers test and build steps skip."
+          fi
+      # Secrets gate, first because nothing else matters if the branch carries a
+      # credential. Rules are in `.gitleaks.toml` (picked up from the repository
+      # root); `.vite-hooks/pre-commit` runs the same scan over the staged diff,
+      # warning instead of failing when the binary is absent.
+      # The binary is pinned as an exact release tarball fetched inline, verified
+      # by checksum as well as by version. Version and checksum are one pin: bump
+      # them together from `gitleaks_<version>_checksums.txt` on the release page.
+      # Scope is `origin/main..HEAD`, the PR's own commits: history before the merge
+      # base is main's problem, and rescanning it on every PR would turn any
+      # pre-existing finding into a permanently red gate.
+      - name: gitleaks (secrets in this PR's commits)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          # Retries: a reset mid-transfer would otherwise turn a required context
+          # red with nothing to fix.
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 10 \
+            -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum --check --strict -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --no-banner --redact --verbose --log-opts="origin/main..HEAD"
+      # Vite+ installs Node (from .nvmrc), the pnpm version from `packageManager`,
+      # and caches the package store. The action is pinned to an exact release
+      # commit; the tag it names is in the comment, which is what Dependabot and
+      # zizmor's `ref-version-mismatch` read. Do not use the `v1` tag.
+      - uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+        with:
+          node-version-file: .nvmrc
+          cache: true
+          # Installed below with an explicit frozen lockfile instead of the action's
+          # default install, so the flag is visible in this file.
+          run-install: false
+      - run: vp install --frozen-lockfile
+      # The committed runtime types match wrangler.jsonc's compatibility date and flags
+      # and the installed workerd, before the type check reads them.
+      - run: pnpm check:worker-types
+      - run: pnpm check
+      # Every label a workflow, script or agent doc names is in `.github/labels.json`.
+      # Labels match as exact strings, and a typo in an `--add-label` otherwise
+      # surfaces only as a refused edit when the command runs.
+      - run: pnpm check:labels
+      # Engineering prose is English: comments, test names, error messages and docs
+      # (docs/agents/coding-standards.md § Code language). Over the whole tree,
+      # expecting zero.
+      - run: pnpm check:comment-language
+      # No source file under `src/` above the estimated-token ceiling an agent can
+      # read whole.
+      - run: pnpm check:file-tokens
+      # Type assertions only fall: each file's count matches its allowlist entry, no
+      # entry rises above origin/main's, and the lint override names exactly the
+      # listed files (docs/agents/coding-standards.md § Type assertions).
+      - run: pnpm check:type-assertions
+      # Dependency hygiene: `pnpm audit --prod` over this branch's tree and over
+      # main's, failing only on the high and critical advisories the branch
+      # introduces. Auditing the whole tree would redden every open PR the day a CVE
+      # lands on a dependency nobody here touched.
+      - name: dependency audit (advisories this branch introduces)
+        if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm check:dependency-audit
+      # Dead code, unused dependencies and duplication (docs/agents/fallow.md), gated
+      # on what this branch adds against `origin/main`. Exit 2 means fallow could not
+      # run (bad config, unresolvable base) and fails the job like a finding.
+      - name: fallow audit (findings this branch introduces)
+        if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm check:fallow
+      # The whole codebase's duplicated share against `duplicates.threshold`
+      # (.fallowrc.json), which `fallow audit` does not read.
+      - name: fallow dupes (duplication ceiling)
+        if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm check:dupes
+      - run: pnpm test:unit
+      # The organization object's tests, in the Workers runtime (Miniflare, local).
+      - if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm test:workers
+      - if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm build
+
+  # The browser suite (tests/e2e/README.md): `pnpm test:e2e` builds the app,
+  # clears the suite's object storage and drives the production Worker, served
+  # locally by `wrangler dev` with the dev sign-in, in Chromium. No keys, no
+  # account, no database service.
+  # Not required yet: it becomes a required context after about two weeks
+  # without a flaky run (docs/operations/ci.md).
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: fetch origin/main
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      # Skips on a docs-only diff like the build in `checks`, and still reports.
+      - name: classify the diff
+        id: diff
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only --no-renames origin/main...HEAD)"
+          if [ -n "$changed" ] && ! grep -qvE '(\.md$|^docs/)' <<<"$changed"; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+            echo "Docs-only diff: the browser suite skips."
+          fi
+      - uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+        if: steps.diff.outputs.docs_only != 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: true
+          run-install: false
+      - if: steps.diff.outputs.docs_only != 'true'
+        run: vp install --frozen-lockfile
+      # The headless Chromium of the pinned @playwright/test. No `--with-deps`:
+      # the runner already has Chromium's libraries, and on 2026-11-06 the flag
+      # only added nine font packages (FreeFont, CJK, Thai, Cyrillic and X font
+      # tools), 8m39s from a slow apt mirror. No spec depends on those fonts: the
+      # specs select by role and label and compare no screenshots. A missing
+      # library fails the first spec loudly; then add the package here.
+      - name: install Chromium
+        if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm exec playwright install --only-shell chromium
+      - name: test:e2e
+        if: steps.diff.outputs.docs_only != 'true'
+        run: pnpm test:e2e
+      # Traces and screenshots of the failed specs: `npx playwright show-trace
+      # <trace.zip>` replays one. Made-up data only (tests/e2e/world.test-support.ts).
+      - name: upload the traces of failed specs
+        if: failure() && steps.diff.outputs.docs_only != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-traces
+          path: test-results/e2e/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Every workflow in `.github/workflows/` goes through zizmor (Actions security
+  # posture: pin freshness, trigger safety, permissions, template injection) and
+  # actionlint (syntax, expressions, shellcheck over `run:` blocks). zizmor also
+  # reads `.github/dependabot.yml` for its cooldown.
+  # No `paths:` filter: like `checks` it must report on every PR to be a required
+  # context, and it costs seconds of runner time.
+  # Online audits are on, which needs a token: `known-vulnerable-actions`,
+  # `impostor-commit` and `ref-version-mismatch` are how the SHA pins stay honest.
+  # `github.token` is read-only here and is used for nothing else.
+  # Both tools are version-pinned; bumping them is a manual edit (docs/operations/ci.md).
+  actions-gate:
+    name: actions-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: zizmor (Actions security posture, pin freshness)
+        env:
+          # Online audits; read-only, and scoped to this run.
+          GH_TOKEN: ${{ github.token }}
+        # `pipx run`, not `uvx`: `pipx` is preinstalled on `ubuntu-latest` and `uv` is
+        # not, so `uvx` would exit 127 before auditing anything.
+        run: pipx run zizmor==1.30.1 --format plain .github/workflows/ .github/dependabot.yml
+      - name: actionlint (workflow syntax and expressions)
+        env:
+          # actionlint runs shellcheck over every `run:` block. Only `warning` and above
+          # is actionable here; at `info`/`style` the gate is a wall of SC2016 findings
+          # on correct `jq '...'` filters.
+          SHELLCHECK_OPTS: --severity=warning
+          # Version and checksum are one pin: the checksum comes from
+          # `actionlint_<version>_checksums.txt` on the release page.
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 10 \
+            -o /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tar.gz" | sha256sum --check --strict -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint -color
